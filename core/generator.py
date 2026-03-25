@@ -20,6 +20,18 @@ from core.vector_store import vector_store
 from features.conflict_detector import detect_conflicts, evaluate_source_credibility
 from features.thinking_chain import process_thinking_content
 
+CONNECT_TIMEOUT = 8
+READ_TIMEOUT = 45
+
+
+def _ollama_available():
+    """快速探测本地 Ollama 是否可用，避免长时间重试等待。"""
+    try:
+        resp = get_session().get("http://localhost:11434/api/tags", timeout=(2, 3))
+        return resp.status_code == 200
+    except Exception:
+        return False
+
 
 def call_siliconflow_api(prompt, temperature=0.7, max_tokens=1024):
     """调用 SiliconFlow 云端 API 获取回答"""
@@ -41,7 +53,12 @@ def call_siliconflow_api(prompt, temperature=0.7, max_tokens=1024):
             "Content-Type": "application/json; charset=utf-8"
         }
         json_payload = json.dumps(payload, ensure_ascii=False).encode('utf-8')
-        response = requests.post(SILICONFLOW_API_URL, data=json_payload, headers=headers, timeout=180)
+        response = requests.post(
+            SILICONFLOW_API_URL,
+            data=json_payload,
+            headers=headers,
+            timeout=(CONNECT_TIMEOUT, READ_TIMEOUT)
+        )
         response.raise_for_status()
         result = response.json()
 
@@ -65,18 +82,63 @@ def call_siliconflow_api(prompt, temperature=0.7, max_tokens=1024):
 def call_llm_simple(prompt, model_choice="siliconflow"):
     """简单的 LLM 调用（用于递归检索中的查询改写判断）"""
     if model_choice == "siliconflow":
-        result = call_siliconflow_api(prompt)
-        result = result.strip() if isinstance(result, str) else result[0].strip()
-        if "<think>" in result:
-            result = result.split("<think>")[0].strip()
-        return result
-    else:
+        # 改写查询对体验提升有限，但会增加一次远端调用和等待；
+        # 在云端模式下默认跳过，避免“提问无响应”的体感。
+        return "不需要进一步查询"
+
+    if not _ollama_available():
+        return "不需要进一步查询"
+
+    try:
         response = get_session().post(
             "http://localhost:11434/api/generate",
             json={"model": OLLAMA_MODEL_NAME, "prompt": prompt, "stream": False},
-            timeout=180
+            timeout=(CONNECT_TIMEOUT, READ_TIMEOUT)
         )
-        return response.json().get("response", "").strip()
+        response.raise_for_status()
+        result = response.json().get("response", "").strip()
+        return result if result else "不需要进一步查询"
+    except Exception as e:
+        logging.warning(f"查询改写调用失败，跳过后续迭代: {e}")
+        return "不需要进一步查询"
+
+
+def _is_error_text(text):
+    """判断返回内容是否为后端错误提示文本。"""
+    if not isinstance(text, str):
+        return False
+    keywords = ["调用API时出错", "系统错误", "HTTPConnectionPool", "Max retries exceeded", "未配置"]
+    return any(k in text for k in keywords)
+
+
+def _call_ollama(prompt):
+    """统一的 Ollama 非流式调用。"""
+    if not _ollama_available():
+        return "系统错误: 本地 Ollama 未启动或不可访问（localhost:11434）。"
+
+    response = get_session().post(
+        "http://localhost:11434/api/generate",
+        json={"model": OLLAMA_MODEL_NAME, "prompt": prompt, "stream": False},
+        timeout=(CONNECT_TIMEOUT, READ_TIMEOUT),
+        headers={'Connection': 'close'}
+    )
+    response.raise_for_status()
+    return str(response.json().get("response", "未获取到有效回答"))
+
+
+def _call_ollama_stream(prompt):
+    """统一的 Ollama 流式调用。"""
+    if not _ollama_available():
+        raise RuntimeError("本地 Ollama 未启动或不可访问（localhost:11434）。")
+
+    response = get_session().post(
+        "http://localhost:11434/api/generate",
+        json={"model": OLLAMA_MODEL_NAME, "prompt": prompt, "stream": True},
+        timeout=(CONNECT_TIMEOUT, READ_TIMEOUT),
+        stream=True
+    )
+    response.raise_for_status()
+    return response
 
 
 def _build_prompt(question, context, enable_web_search, knowledge_base_exists,
@@ -165,13 +227,10 @@ def query_answer(question, enable_web_search=False, model_choice="siliconflow", 
         if model_choice == "siliconflow":
             result = call_siliconflow_api(prompt, temperature=0.7, max_tokens=1536)
         else:
-            response = get_session().post(
-                "http://localhost:11434/api/generate",
-                json={"model": OLLAMA_MODEL_NAME, "prompt": prompt, "stream": False},
-                timeout=180, headers={'Connection': 'close'}
-            )
-            response.raise_for_status()
-            result = str(response.json().get("response", "未获取到有效回答"))
+            result = _call_ollama(prompt)
+
+        if _is_error_text(result):
+            return result
 
         return process_thinking_content(result)
 
@@ -205,13 +264,12 @@ def stream_answer(question, enable_web_search=False, model_choice="siliconflow",
 
         if model_choice == "siliconflow":
             full_answer = call_siliconflow_api(prompt, temperature=0.7, max_tokens=1536)
+            if _is_error_text(full_answer):
+                yield full_answer, "遇到错误"
+                return
             yield process_thinking_content(full_answer), "完成!"
         else:
-            response = get_session().post(
-                "http://localhost:11434/api/generate",
-                json={"model": OLLAMA_MODEL_NAME, "prompt": prompt, "stream": True},
-                timeout=120, stream=True
-            )
+            response = _call_ollama_stream(prompt)
             full_answer = ""
             for line in response.iter_lines():
                 if line:

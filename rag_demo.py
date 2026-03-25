@@ -47,7 +47,24 @@ print("Gradio version:", gr.__version__)
 def process_multiple_files(files, progress=gr.Progress()):
     """处理多个文件：提取文本 → 分块 → 向量化 → 构建索引"""
     if not files:
-        return "请选择要上传的文件(支持PDF, Word, Excel, PPT, TXT, Markdown等)", []
+        return "请选择要上传的文件(支持PDF, Word, Excel, PPT, TXT, Markdown等)", ""
+
+    def resolve_file(uploaded_file):
+        """兼容 Gradio 不同版本返回的文件类型（str / 文件对象 / dict）。"""
+        if isinstance(uploaded_file, str):
+            path = uploaded_file
+            name = os.path.basename(uploaded_file)
+            return path, name
+
+        if isinstance(uploaded_file, dict):
+            path = uploaded_file.get("path") or uploaded_file.get("name")
+            name = uploaded_file.get("orig_name") or (os.path.basename(path) if path else "未知文件")
+            return path, name
+
+        path = getattr(uploaded_file, "name", None)
+        original_name = getattr(uploaded_file, "orig_name", None)
+        name = original_name or (os.path.basename(path) if path else "未知文件")
+        return path, name
 
     try:
         progress(0.1, desc="清理历史数据...")
@@ -56,14 +73,21 @@ def process_multiple_files(files, progress=gr.Progress()):
 
         total_files = len(files)
         processed_results = []
+        processed_file_names = []
         all_chunks, all_metadatas, all_ids = [], [], []
 
         for idx, file in enumerate(files, 1):
+            file_name = f"第{idx}个文件"
             try:
-                file_name = os.path.basename(file.name)
+                file_path, file_name = resolve_file(file)
+                if not file_path:
+                    raise ValueError("上传文件路径为空")
+                if not os.path.exists(file_path):
+                    raise FileNotFoundError(f"找不到上传文件: {file_path}")
+
                 progress((idx - 1) / total_files, desc=f"处理文件 {idx}/{total_files}: {file_name}")
 
-                text = extract_text(file.name)
+                text = extract_text(file_path)
                 if not text:
                     raise ValueError("文档内容为空或无法提取文本")
 
@@ -76,28 +100,32 @@ def process_multiple_files(files, progress=gr.Progress()):
                 all_metadatas.extend(metadatas)
                 all_ids.extend(chunk_ids)
                 processed_results.append(f"✅ {file_name}: 成功处理 {len(chunks)} 个文本块")
+                processed_file_names.append(file_name)
 
             except Exception as e:
                 logging.error(f"处理文件 {file_name} 时出错: {str(e)}")
                 processed_results.append(f"❌ {file_name}: 处理失败 - {str(e)}")
 
-        if all_chunks:
-            progress(0.8, desc="生成文本嵌入...")
-            embeddings = encode_texts(all_chunks, show_progress=True)
+        if not all_chunks:
+            return "\n".join(processed_results + ["未能成功处理任何文件，请检查文件格式或内容后重试。"]), ""
 
-            progress(0.9, desc="构建FAISS索引...")
-            vector_store.build_index(all_chunks, all_ids, all_metadatas, embeddings)
+        progress(0.8, desc="生成文本嵌入...")
+        embeddings = encode_texts(all_chunks, show_progress=True)
+
+        progress(0.9, desc="构建FAISS索引...")
+        vector_store.build_index(all_chunks, all_ids, all_metadatas, embeddings)
 
         progress(0.95, desc="构建BM25检索索引...")
         bm25_manager.build_index(all_chunks, all_ids)
 
         summary = f"\n总计处理 {total_files} 个文件，{len(all_chunks)} 个文本块"
         processed_results.append(summary)
-        return "\n".join(processed_results), [f"📄 {os.path.basename(f.name)}" for f in files]
+        file_list_text = "\n".join([f"📄 {name}" for name in processed_file_names])
+        return "\n".join(processed_results), file_list_text
 
     except Exception as e:
         logging.error(f"处理过程出错: {str(e)}")
-        return f"处理过程出错: {str(e)}", []
+        return f"处理过程出错: {str(e)}", ""
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -228,7 +256,8 @@ with gr.Blocks(title="本地RAG问答系统") as demo:
                         file_input = gr.File(
                             label="上传文档 (支持PDF, Word, Excel, PPT, TXT, Markdown等)",
                             file_types=[".pdf", ".txt", ".docx", ".xlsx", ".xls", ".pptx", ".md"],
-                            file_count="multiple"
+                            file_count="multiple",
+                            type="filepath"
                         )
                         upload_btn = gr.Button("🚀 开始处理", variant="primary")
                         upload_status = gr.Textbox(label="处理状态", interactive=False, lines=2)
@@ -343,7 +372,13 @@ with gr.Blocks(title="本地RAG问答系统") as demo:
 
         if not question or question.strip() == "":
             history.append({"role": "assistant", "content": "问题不能为空，请输入有效问题。"})
-            return history, "", api_text
+            yield history, "", api_text
+            return
+
+        # 先回显用户输入，避免后端生成期间界面看起来“无响应”。
+        history.append({"role": "user", "content": question})
+        history.append({"role": "assistant", "content": "正在思考中，请稍候..."})
+        yield history, "", api_text
 
         try:
             answer = query_answer(question, enable_web_search, model_choice_val)
@@ -351,9 +386,8 @@ with gr.Blocks(title="本地RAG问答系统") as demo:
             answer = f"系统错误: {str(e)}"
             logging.error(f"问答处理异常: {str(e)}")
 
-        history.append({"role": "user", "content": question})
-        history.append({"role": "assistant", "content": answer})
-        return history, "", api_text
+        history[-1] = {"role": "assistant", "content": answer}
+        yield history, "", api_text
 
     def update_api_info(enable_web_search, model_choice_val):
         return """<div class="api-info" style="margin-top:10px;padding:10px;border-radius:5px;
@@ -406,7 +440,7 @@ with gr.Blocks(title="本地RAG问答系统") as demo:
     # ━━━ 绑定事件 ━━━
     upload_btn.click(process_multiple_files, inputs=[file_input], outputs=[upload_status, file_list], show_progress=True)
     ask_btn.click(process_chat, inputs=[question_input, chatbot, web_search_checkbox, model_choice],
-                  outputs=[chatbot, question_input, api_info])
+                  outputs=[chatbot, question_input, api_info], show_progress=True)
     clear_btn.click(clear_chat_history, inputs=[], outputs=[chatbot, status_display])
     web_search_checkbox.change(update_api_info, inputs=[web_search_checkbox, model_choice], outputs=[api_info])
     model_choice.change(update_api_info, inputs=[web_search_checkbox, model_choice], outputs=[api_info])

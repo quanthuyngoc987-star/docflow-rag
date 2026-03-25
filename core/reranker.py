@@ -28,11 +28,12 @@ def get_cross_encoder():
                 try:
                     from sentence_transformers import CrossEncoder
                     _cross_encoder = CrossEncoder(
-                        'sentence-transformers/distiluse-base-multilingual-cased-v2'
+                        'sentence-transformers/distiluse-base-multilingual-cased-v2',
+                        local_files_only=True
                     )
-                    logging.info("交叉编码器加载成功")
+                    logging.info("交叉编码器加载成功（本地缓存）")
                 except Exception as e:
-                    logging.error(f"加载交叉编码器失败: {str(e)}")
+                    logging.warning(f"交叉编码器本地缓存不可用，直接回退不重排序: {str(e)}")
                     _cross_encoder = None
     return _cross_encoder
 
