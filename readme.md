@@ -1,6 +1,6 @@
 <div align="center">
 
-# Local PDF Chat RAG
+# DocFlow
 
 ### A clean and practical Chinese RAG starter for document QA
 
@@ -113,15 +113,15 @@ graph TD
 ### 1. 克隆并进入项目
 
 ```bash
-git clone git@github.com:quanthuyngoc987-star/rag_test.git
-cd rag_test
+git clone git@github.com:quanthuyngoc987-star/docflow-rag.git
+cd docflow-rag
 ```
 
 如果你使用 HTTPS：
 
 ```bash
-git clone https://github.com/quanthuyngoc987-star/rag_test.git
-cd rag_test
+git clone https://github.com/quanthuyngoc987-star/docflow-rag.git
+cd docflow-rag
 ```
 
 ### 2. 创建虚拟环境
@@ -273,9 +273,9 @@ curl -X POST "http://127.0.0.1:17995/api/ask" -H "Content-Type: application/json
 
 更适合学习、演示和业务原型验证。当前知识库在进程内存中，方便快速上手，但如果要上生产，建议补充持久化存储、权限隔离、日志监控和评测体系。
 
-### 2. 为什么项目叫 Local，但现在默认用了云端 DeepSeek？
+### 2. 为什么叫 DocFlow，但当前默认用了云端 DeepSeek？
 
-这里的 `Local` 更偏“本地文档问答”而不是“完全离线推理”。当前版本的知识来源主要是本地上传文档，生成阶段默认走 DeepSeek API，这样更利于快速体验和稳定输出。
+`DocFlow` 强调的是文档流转与检索增强流程（Document Flow），不是限定“必须离线推理”。当前版本的知识来源主要是本地上传文档，生成阶段默认走 DeepSeek API，这样更利于快速体验和稳定输出。
 
 ### 3. 只做向量检索不行吗？
 
