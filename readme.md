@@ -1,331 +1,190 @@
 <div align="center">
 
-# DocFlow
+# 本地化智能问答系统 (FAISS版) - 从零搭建可落地的RAG工程实践
 
-### A clean and practical Chinese RAG starter for document QA
+🔥 无需复杂配置，手把手拆解RAG全链路，本地部署+云端适配，新手也能快速上手的工程化实践项目
 
-一个面向中文场景的文档问答项目，聚焦把 RAG 的关键链路真正跑通：
-**文档解析 -> 文本切分 -> 向量检索 -> BM25 混合召回 -> 重排序 -> 大模型生成**。
+## 🎯 核心学习目标
 
-它不止是一个界面演示，也不只是算法样例，而是一个兼顾学习、演示与二次开发的 RAG 工程起点。
+告别RAG理论空谈，聚焦「可动手、可落地」，帮你从0到1掌握检索增强生成核心技术，构建属于自己的智能问答系统。
 
-<p>
-  <img src="https://img.shields.io/badge/Python-3.9%2B-blue" alt="Python">
-  <img src="https://img.shields.io/badge/UI-Gradio-ff7a59" alt="Gradio">
-  <img src="https://img.shields.io/badge/API-FastAPI-009688" alt="FastAPI">
-  <img src="https://img.shields.io/badge/Retrieval-FAISS%20%2B%20BM25-f4b400" alt="FAISS + BM25">
-  <img src="https://img.shields.io/badge/LLM-DeepSeek-5c6bc0" alt="DeepSeek">
-  <img src="https://img.shields.io/badge/License-MIT-green" alt="MIT">
-</p>
+* **拆解RAG黑盒** ：亲手实现「文档加载→文本切分→向量化→检索→生成」全流程，理解每一步核心逻辑
+* **掌握技术选型** ：实战FAISS向量检索与BM25关键词检索混合策略，理解不同检索方式的适配场景
+* **优化实战技巧** ：通过交叉编码器重排序、递归检索，手把手提升RAG系统的准确性和召回率
+* **多模型适配** ：无缝集成本地Ollama与云端SiliconFlow API，掌握本地轻量化与云端高性能的灵活切换
 
-<p>
-  <img src="images/demo1.jpeg" width="31%" alt="demo1">
-  <img src="images/demo2.jpeg" width="31%" alt="demo2">
-  <img src="images/demo3.jpeg" width="31%" alt="demo3">
-</p>
+## 🌟 核心功能 | 开箱即用
 
-</div>
+| 功能模块                                                                            | 核心亮点                                                      |
+| ----------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| ----------------------------------------------------------------------------------- |                                                               |
+| 📁 多格式文档处理                                                                   | 支持PDF/TXT/DOCX/MD等8种格式，自动分割、向量化，无需手动处理  |
+| -                                                                                   | -                                                             |
+| 🔍 混合检索引擎                                                                     | FAISS语义检索+BM25关键词检索，双重保障，大幅提升检索准确性    |
+| 🔄 智能重排序                                                                       | 支持交叉编码器、LLM精排，过滤无效信息，让回答更精准           |
+| 🌐 联网增强（可选）                                                                 | 集成SerpAPI，补充实时网络信息，解决静态文档时效性问题         |
+| 🗣️ 本地+云端双引擎                                                                | 自动检测可用LLM，本地Ollama轻量部署，云端SiliconFlow免GPU压力 |
+| 🖥️ 交互式UI                                                                       | 基于Gradio构建，简洁直观，支持文档分块可视化，便于调试学习    |
 
-## ✨ TL;DR
+## 📂 项目结构 | 按RAG流水线拆分（新手友好学习路线）
 
-如果你想找一个：
+项目按「RAG核心流程」拆分模块，建议按顺序学习，循序渐进掌握每一个环节：
 
-- 📄 能直接上传文档并开始问答的中文 RAG 项目
-- 🧠 既能学原理，又能继续二开的工程化 Demo
-- 🔍 不只做向量检索，还补上 BM25、重排序、递归检索这些关键环节的仓库
+```bash
 
-那这个项目会比较合适。
+├── config.py                 # ⚙️ 配置中心（环境变量、超参数、LLM自动检测，一键配置）
+├── rag_demo.py               # 🖥️ 主入口（Gradio UI启动，一键运行）
+├── api_router.py             # 🔌 REST API路由（可选，支持接口调用）
+│
+├── core/                     # 🧠 RAG核心模块（重点学习！按流水线顺序）
+│   ├── document_loader.py    # 1️⃣ 文档加载 — 多格式文本提取，解决不同文档解析问题
+│   ├── text_splitter.py      # 2️⃣ 文本分块 — 长文本智能切分，优化检索效果
+│   ├── embeddings.py         # 3️⃣ 向量化 — 文本转向量，理解语义映射逻辑
+│   ├── vector_store.py       # 4️⃣ 向量存储 — FAISS索引，高效检索核心
+│   ├── bm25_index.py         # 5️⃣ 稀疏检索 — BM25关键词检索，补充语义检索短板
+│   ├── retriever.py          # 6️⃣ 混合检索 — 语义+关键词融合，提升召回率
+│   ├── reranker.py           # 7️⃣ 重排序 — 精排检索结果，过滤无效信息
+│   └── generator.py          # 8️⃣ 生成回答 — Prompt优化+LLM调用，输出高质量回复
+│
+├── features/                 # ✨ 扩展功能（按需学习，提升项目竞争力）
+│   ├── web_search.py         # 联网搜索（SerpAPI集成，实时信息补充）
+│   ├── conflict_detector.py  # 矛盾检测，提升回答可信度
+│   └── thinking_chain.py     # 思维链处理（DeepSeek-R1适配，复杂问题拆解）
+│
+└── utils/                    # 🔧 工具模块（辅助功能，无需深入，会用即可）
+    └── network.py            # HTTP请求+端口检测，保障服务稳定
+  
+```
 
-## 📚 Contents
-
-- [Why This Project](#why-this-project)
-- [Features](#features)
-- [Use Cases](#use-cases)
-- [Architecture](#architecture)
-- [Quick Start](#quick-start)
-- [API Example](#api-example)
-- [Project Structure](#project-structure)
-- [FAQ](#faq)
-- [Roadmap](#roadmap)
-- [Contributing](#contributing)
-
-## 🚀 Why This Project
-
-- **不是纸上谈兵的 RAG 教学仓库**：上传文档后即可完成分块、索引构建、检索和问答。
-- **兼顾效果和可解释性**：不仅有向量检索，还加入了 BM25、重排序和分块可视化。
-- **对中文场景友好**：集成 `jieba` 分词、中文文档处理链路和中文问答流程。
-- **适合继续扩展**：内置 `Gradio UI + FastAPI API` 双入口，方便从 Demo 走向服务化。
-- **代码结构清晰**：核心流程按 RAG 流水线拆分，阅读成本低，二开也舒服。
-
-## 🌟 Features
-
-| 能力 | 说明 | 价值 |
-| --- | --- | --- |
-| 多格式文档解析 | 支持 `PDF / TXT / MD / DOCX / XLS / XLSX / PPTX` | 能直接接入常见知识资料 |
-| 混合检索 | `FAISS` 语义检索 + `BM25` 关键词检索 | 提升召回率，减少只靠向量检索的遗漏 |
-| 二阶段排序 | 召回后使用交叉编码器进行精排 | 让最终上下文更贴近问题意图 |
-| 递归检索 | 支持多轮查询改写与补充检索 | 更适合复杂问题和信息不足场景 |
-| 联网搜索增强 | 可选接入 `SerpAPI` | 处理时效性问题时更灵活 |
-| 文档分块可视化 | 在界面中查看 chunk 预览与详情 | 方便调参与理解检索效果 |
-| 冲突检测 | 对多来源上下文做差异感知 | 减少“强行总结”的错误回答 |
-| 双入口运行 | 提供 `Gradio` Web 界面与 `FastAPI` 接口 | 便于体验、集成和部署 |
-
-## 👥 适合谁
-
-- 想系统理解 RAG 基本链路的开发者
-- 需要一个中文知识库问答原型的个人/团队
-- 想把课程作业、毕业设计、内部工具做得更完整的同学
-- 希望从“能跑”进一步走向“结构清晰、便于扩展”的工程实践者
-
-## 🧩 Use Cases
-
-- **企业内部知识库问答**：把产品文档、流程手册、FAQ 整理成可检索问答系统
-- **课程设计 / 毕业设计**：比“调用一个大模型 API”更完整，也比纯论文复现更容易展示
-- **垂直领域资料助手**：例如维修案例、技术规范、政策材料、培训文档
-- **RAG 学习样板**：适合拆开每个模块理解检索增强生成的实际工程链路
-- **原型验证**：在正式接入 Milvus、ES、Postgres 前，先验证业务问答流程是否成立
-
-## 🏗️ Architecture
+## 🔧 系统架构 | 可视化理解RAG全流程
 
 ```mermaid
+
 graph TD
-    A[Upload Documents] --> B[Text Extraction]
-    B --> C[Chunking]
-    C --> D[Embedding]
-    D --> E[FAISS Index]
-    C --> F[BM25 Index]
+    subgraph "用户交互层"
+        A[用户界面] --> |上传文档| B[多格式文档处理]
+        A --> |提问| C[问答请求处理]
+    end
 
-    G[User Question] --> H[Query Embedding]
-    H --> I[Semantic Retrieval]
-    G --> J[BM25 Retrieval]
-    I --> K[Hybrid Merge]
-    J --> K
-    K --> L[Reranker]
-    L --> M[Prompt Builder]
-    N[Optional Web Search] --> M
-    M --> O[DeepSeek Generation]
-    O --> P[Answer + Sources]
+    subgraph "数据处理层"
+        B --> D[文本切分+向量化+FAISS存储]
+        C --> |问题向量化| D
+    end
+
+    subgraph "检索层"
+        D --> E[FAISS语义检索 + BM25关键词检索]
+        E --> |候选上下文| F[混合重排模块]
+    end
+
+    subgraph "生成层"
+        C --> |需实时信息| G[联网搜索（可选）]
+        F --> H[LLM推理（Ollama/SiliconFlow）]
+        G --> H
+        H --> |生成精准回答| C
+    end
+
+    C --> |返回回答| A
+  
 ```
 
-## ⚡ Quick Start
+## 🚀 快速上手 | 3步启动服务（新手必看）
 
-### 1. 克隆并进入项目
+### 1. 环境准备（Python 3.9+ 必选）
+
+推荐使用虚拟环境，避免依赖冲突，复制命令直接执行即可：
+
+#### 方式一：venv（推荐，跨平台）
 
 ```bash
-git clone git@github.com:quanthuyngoc987-star/docflow-rag.git
-cd docflow-rag
+
+# Mac / Linux
+python3 -m venv rag_env
+source rag_env/bin/activate
+
+# Windows
+python -m venv rag_env
+rag_env\Scripts\activate
+  
 ```
 
-如果你使用 HTTPS：
+#### 方式二：Conda（可选，适合数据分析从业者）
 
 ```bash
-git clone https://github.com/quanthuyngoc987-star/docflow-rag.git
-cd docflow-rag
+
+conda create -n rag_env python=3.10 -y
+conda activate rag_env
+  
 ```
 
-### 2. 创建虚拟环境
-
-Windows:
-
-```powershell
-python -m venv .venv
-.venv\Scripts\activate
-```
-
-macOS / Linux:
+### 2. 安装依赖+配置环境
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
-
-### 3. 安装依赖
-
-```bash
+# 安装核心依赖
 pip install -r requirements.txt
-```
 
-如果你希望处理 Excel 文件，建议额外安装：
-
-```bash
-pip install pandas
-```
-
-### 4. 配置环境变量
-
-Windows:
-
-```powershell
-Copy-Item example.env .env
-```
-
-macOS / Linux:
-
-```bash
+# 配置环境变量（复制示例配置，填入API密钥）
 cp example.env .env
+# 编辑.env文件，至少配置一项LLM后端：
+# - SILICONFLOW_API_KEY: 云端引擎（推荐，无需GPU）
+# - 或后续启动本地Ollama服务（无需API密钥）
+  
 ```
 
-最少需要配置：
+### 3. 启动服务（本地/云端二选一）
 
-```env
-DEEPSEEK_API_KEY=your_api_key
-DEEPSEEK_MODEL_NAME=deepseek-chat
-```
-
-可选配置：
-
-```env
-SERPAPI_KEY=your_serpapi_key
-```
-
-说明：
-
-- ✅ 当前版本默认使用 **DeepSeek 云端模型**
-- ♻️ 项目仍兼容旧变量名 `SILICONFLOW_API_KEY / SILICONFLOW_MODEL_NAME`
-- 🌐 未配置 `SERPAPI_KEY` 时，联网搜索功能会自动不可用
-
-### 5. 启动 Web UI
+#### 选项1：使用本地Ollama（推荐，轻量化，无需联网）
 
 ```bash
+
+# 1. 下载Ollama（MacOS直接执行以下命令，其他系统访问官网）
+curl -fsSL https://ollama.com/install.sh | sh
+# 2. 启动Ollama服务
+ollama serve
+# 3. 拉取模型（示例：deepseek-r1:8b，轻量且效果好）
+ollama pull deepseek-r1:8b
+# 4. 启动项目
 python rag_demo.py
+  
 ```
 
-默认会尝试在本地打开：
-
-```text
-http://127.0.0.1:17995
-```
-
-### 6. 启动 API 服务
+#### 选项2：使用云端SiliconFlow（无需本地GPU，直接可用）
 
 ```bash
-python api_router.py
+# 确保.env文件中配置了SILICONFLOW_API_KEY
+python rag_demo.py
+  
 ```
 
-可用接口：
+服务启动后，会自动在浏览器打开 `http://127.0.0.1:17995`，首次运行会自动下载向量化模型（约80MB，耐心等待）。
 
-- `POST /api/upload`：上传文档并建立索引
-- `POST /api/ask`：提交问题获取答案
-- `GET /api/status`：查看服务与知识库状态
+## 📦 核心依赖清单（按功能分层，清晰易懂）
 
-## 🔌 API Example
+* **用户交互层** ：gradio（快速搭建交互式Web界面）
+* **数据处理层** ：pdfminer.six（PDF提取）、langchain-text-splitters（文本切分）、sentence-transformers（向量化）、faiss-cpu（向量检索）、jieba（中文分词）
+* **检索与外部调用** ：requests、urllib3（HTTP请求）、rank_bm25（BM25检索）
+* **系统辅助** ：python-dotenv（环境变量）、psutil（系统监控）、numpy（向量计算）
+* **可选扩展** ：fastapi、uvicorn（REST API服务）
 
-### 上传文档
+## 🚀 进阶扩展方向（提升竞争力，适合进阶学习）
 
-```bash
-curl -X POST "http://127.0.0.1:17995/api/upload" -F "file=@挖掘机维修案例(样例）.pdf"
-```
+基于本项目，可进一步探索以下方向，打造更具实用性的RAG系统：
 
-### 发起问答
+1. **多跳检索与推理链** ：处理复杂问题，实现多次检索-推理循环（难度：困难）
+2. **多模态适配** ：集成图像、表格等多模态内容，扩展检索范围（难度：中等-困难）
+3. **检索质量自优化** ：通过LLM评估检索结果，自动调整检索策略（难度：困难）
+4. **用户反馈持续学习** ：利用用户反馈，动态调优模型和检索参数（难度：困难）
+5. **智能缓存与增量索引** ：优化性能，支持文档增量更新，减少重复计算（难度：中等）
 
-```bash
-curl -X POST "http://127.0.0.1:17995/api/ask" -H "Content-Type: application/json" -d "{\"question\":\"这份资料里常见故障怎么排查？\",\"enable_web_search\":false,\"model_choice\":\"deepseek\"}"
-```
+## 🤝 贡献与交流
 
-## 🗂️ Project Structure
+本项目面向开发者、学习者开放，欢迎大家：
 
-```text
-.
-├── rag_demo.py              # Gradio UI 主入口
-├── api_router.py            # FastAPI 接口入口
-├── config.py                # 配置中心与运行参数
-├── core/
-│   ├── document_loader.py   # 文档解析
-│   ├── text_splitter.py     # 文本切分
-│   ├── embeddings.py        # 向量化
-│   ├── vector_store.py      # FAISS 向量索引
-│   ├── bm25_index.py        # BM25 稀疏检索
-│   ├── retriever.py         # 混合召回与递归检索
-│   ├── reranker.py          # 重排序
-│   └── generator.py         # Prompt 构建与答案生成
-├── features/
-│   ├── web_search.py        # 联网搜索增强
-│   ├── conflict_detector.py # 多来源冲突检测
-│   └── thinking_chain.py    # 推理内容格式处理
-├── utils/
-│   └── network.py           # 网络与端口工具
-└── images/                  # 项目界面截图
-```
+* 🌟 Star 本项目，支持开源发展
+* 💬 提交Issue，反馈问题或提出建议
+* 🔧 提交PR，贡献代码（优先修复bug、优化文档、新增实用功能）
 
-## 💡 What Makes It Useful
+## 📝 许可证
 
-### 1. 学习路径自然
+本项目采用 **MIT License** 开源协议，可自由用于个人学习、商业项目（注明出处即可）。
 
-代码按 RAG 的标准流水线拆分，没有把所有逻辑塞进一个脚本里。你可以顺着 `document_loader -> text_splitter -> embeddings -> retriever -> generator` 一路读下来。
-
-### 2. 不只“能回答”，还尽量“答得靠谱”
-
-项目不是简单做一个向量检索 Demo，而是补上了几个很关键的环节：
-
-- `BM25` 补关键词召回
-- `Reranker` 做二阶段排序
-- `Recursive Retrieval` 做查询改写
-- `Conflict Detection` 处理多来源信息差异
-
-### 3. 可以从 Demo 快速走到原型
-
-你可以直接用 Web UI 做演示，也可以通过 FastAPI 接到前端、机器人或内部系统里。
-
-## ❓ FAQ
-
-### 1. 这个项目适合直接上生产吗？
-
-更适合学习、演示和业务原型验证。当前知识库在进程内存中，方便快速上手，但如果要上生产，建议补充持久化存储、权限隔离、日志监控和评测体系。
-
-### 2. 为什么叫 DocFlow，但当前默认用了云端 DeepSeek？
-
-`DocFlow` 强调的是文档流转与检索增强流程（Document Flow），不是限定“必须离线推理”。当前版本的知识来源主要是本地上传文档，生成阶段默认走 DeepSeek API，这样更利于快速体验和稳定输出。
-
-### 3. 只做向量检索不行吗？
-
-能跑，但效果通常不够稳。很多中文问答场景对关键词、专有名词、型号编号都比较敏感，所以项目补了 `BM25` 和 `Reranker`，这也是它比很多基础 Demo 更实用的地方。
-
-### 4. 为什么有时候回答还是不够准？
-
-RAG 的瓶颈通常不只在模型本身，还可能出在文档质量、文本切分、召回范围、重排序质量和上下文构造上。这个项目已经把关键链路拆开，方便你逐步定位问题。
-
-### 5. 如果我想继续扩展，应该先改哪里？
-
-比较推荐优先从这几块入手：
-
-- 向量库持久化
-- 文档元数据过滤
-- 更强的 reranker
-- 引用展示与答案评测
-- Docker 化部署
-
-## 📝 Notes
-
-- ⏳ 首次运行会下载嵌入模型，速度取决于网络环境。
-- 🧷 交叉编码器默认优先读取本地缓存；缓存不可用时会自动回退，不影响主流程运行。
-- 📦 当前知识库保存在进程内存中，适合学习、演示和轻量原型，不适合直接作为生产级持久化方案。
-
-## 🛣️ Roadmap
-
-- [ ] 支持增量索引与持久化存储
-- [ ] 增加评测脚本与检索效果对比
-- [ ] 支持更丰富的文档格式与元数据过滤
-- [ ] 提供 Docker 一键启动方案
-- [ ] 增加多轮对话记忆与更细粒度引用展示
-
-## 🤝 Contributing
-
-欢迎提交 `Issue` 和 `PR`，无论是修复 bug、补充文档、改进检索效果，还是完善 UI 体验，都很有价值。
-
-如果你准备继续扩展这个项目，比较推荐从下面几个方向入手：
-
-- 持久化向量库与索引缓存
-- 更强的 reranker 或重排策略
-- 文档权限隔离与多用户知识库
-- 更细的引用追踪和答案可解释性
-
-简化的协作流程：
-
-1. Fork 本仓库并创建功能分支
-2. 提交清晰的 commit 信息（建议按功能点拆分）
-3. 提交 PR，并在描述中写明改动动机和验证方式
-4. 对 review 意见做增量修改，不强制 squash 历史
-
-## 📄 License
-
-本项目采用 [MIT](LICENSE) 许可证。
+✨ 祝大家学习顺利，快速掌握RAG核心技术，构建属于自己的智能问答系统！ ✨
